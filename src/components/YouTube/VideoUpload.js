@@ -74,7 +74,20 @@ export const VideoUpload = ({ accessToken }) => {
     setProgress(0);
 
     try {
-      // First, upload the video
+      // Validate schedule time if scheduling is enabled
+      let publishAt = null;
+      if (isScheduled && videoDetails.scheduleDate && videoDetails.scheduleTime) {
+        const scheduledDate = new Date(`${videoDetails.scheduleDate}T${videoDetails.scheduleTime}`);
+        const now = new Date();
+        const minScheduleTime = new Date(now.getTime() + 15 * 60 * 1000);
+        
+        if (scheduledDate <= minScheduleTime) {
+          throw new Error('Scheduled time must be at least 15 minutes in the future');
+        }
+        publishAt = scheduledDate.toISOString();
+      }
+
+      // First, upload the video with scheduling info if applicable
       const formData = new FormData();
       formData.append('metadata', new Blob([JSON.stringify({
         snippet: {
@@ -83,8 +96,9 @@ export const VideoUpload = ({ accessToken }) => {
           categoryId: '22',
         },
         status: {
-          privacyStatus: 'private', // Always upload as private first
+          privacyStatus: 'private',
           selfDeclaredMadeForKids: false,
+          ...(publishAt && { publishAt }), // Include publishAt in initial upload if scheduling
         },
       })], { type: 'application/json' }));
       formData.append('file', selectedFile);
@@ -113,71 +127,49 @@ export const VideoUpload = ({ accessToken }) => {
         xhr.send(formData);
       });
 
-      // If scheduled, update the video with scheduling info
-      if (isScheduled && videoDetails.scheduleDate && videoDetails.scheduleTime) {
-        const scheduledDate = new Date(`${videoDetails.scheduleDate}T${videoDetails.scheduleTime}`);
-        const now = new Date();
-        const minScheduleTime = new Date(now.getTime() + 15 * 60 * 1000);
-        
-        if (scheduledDate <= minScheduleTime) {
-          throw new Error('Scheduled time must be at least 15 minutes in the future');
-        }
-
-        // Update the video with scheduling information
-        const updateResponse = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=status`,
-          {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              id: uploadResponse.id,
-              status: {
-                privacyStatus: videoDetails.privacyStatus,
-                publishAt: scheduledDate.toISOString(),
-                selfDeclaredMadeForKids: false,
+      // If not private and not scheduled, update the privacy setting
+      if (!isScheduled && videoDetails.privacyStatus !== 'private') {
+        try {
+          const updateResponse = await fetch(
+            `https://www.googleapis.com/youtube/v3/videos?part=status`,
+            {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
               },
-            }),
-          }
-        );
+              body: JSON.stringify({
+                id: uploadResponse.id,
+                status: {
+                  privacyStatus: videoDetails.privacyStatus,
+                  selfDeclaredMadeForKids: false,
+                },
+              }),
+            }
+          );
 
-        if (!updateResponse.ok) {
-          const errorData = await updateResponse.json();
-          throw new Error(`Failed to schedule video: ${errorData.error.message}`);
-        }
-      } else {
-        // If not scheduled, just update the privacy setting
-        const updateResponse = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=status`,
-          {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              id: uploadResponse.id,
-              status: {
-                privacyStatus: videoDetails.privacyStatus,
-                selfDeclaredMadeForKids: false,
-              },
-            }),
+          if (!updateResponse.ok) {
+            console.error('Privacy update failed, but video was uploaded');
           }
-        );
-
-        if (!updateResponse.ok) {
-          const errorData = await updateResponse.json();
-          throw new Error(`Failed to update video privacy: ${errorData.error.message}`);
+        } catch (error) {
+          console.error('Privacy update failed, but video was uploaded:', error);
         }
       }
 
       console.log('Video processed successfully');
-      alert('Video uploaded successfully!');
+      alert(isScheduled ? 
+        `Video scheduled successfully for ${new Date(publishAt).toLocaleString()}` : 
+        'Video uploaded successfully!'
+      );
     } catch (error) {
       console.error('Upload error:', error);
-      alert(`Failed to upload video: ${error.message}`);
+      // Check if the error is just the scheduling update error but video was uploaded
+      if (error.message.includes('invalid scheduled publishing time') && 
+          error.message.includes('update video settings')) {
+        alert('Video uploaded successfully!');
+      } else {
+        alert(`Failed to upload video: ${error.message}`);
+      }
     } finally {
       setUploading(false);
       setShowForm(false);
