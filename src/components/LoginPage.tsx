@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Shield, ChevronRight, ArrowLeft } from 'lucide-react';
+import { usePersistentAuth } from './Auth/PersistentAuth';
 
-interface LoginPageProps {
-  onLogin: (type: 'manager' | 'client') => void;
-}
-
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+const LoginPage = () => {
   const [view, setView] = useState('selection');
+  const { login } = usePersistentAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -33,7 +31,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(view === 'clientLogin' ? 'client' : 'manager');
+    // Handle login logic
+  };
+
+  const handleClientLogin = () => {
+    login(); // This will trigger Google OAuth
   };
 
   return (
@@ -88,14 +90,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 
                 <div className="space-y-4">
                   <motion.button
-                    onClick={() => setView('clientLogin')}
+                    onClick={handleClientLogin}
                     className="w-full group bg-gradient-to-r from-purple-700 to-violet-800 hover:from-purple-600 hover:to-violet-700 text-white rounded-xl p-4 flex items-center justify-between transition-all duration-300"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
                     <div className="flex items-center gap-3">
                       <User className="w-5 h-5" />
-                      <span className="font-medium">Client Access</span>
+                      <span className="font-medium">Sign in with Google</span>
                     </div>
                     <motion.div
                       whileHover={{ x: 5 }}

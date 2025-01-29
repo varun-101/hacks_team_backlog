@@ -6,6 +6,7 @@ import {
   XCircle, BarChart, PieChart, TrendingUp, Users
 } from 'lucide-react';
 import { Card, Title, Text, AreaChart, DonutChart, BarList } from '@tremor/react';
+import { VideoStats } from './YouTube/VideoStats';
 
 interface Post {
   id: string;
@@ -70,6 +71,8 @@ const ClientDashboard = () => {
       }
     }
   ]);
+
+  const accessToken = localStorage.getItem('youtube_access_token');
 
   const handlePostAction = (postId: string, action: 'approve' | 'reject') => {
     // Handle post approval/rejection
@@ -356,6 +359,7 @@ const ClientDashboard = () => {
 
         {/* Dashboard Content */}
         <div className="h-[calc(100vh-4rem)] overflow-auto p-6">
+          <VideoStats accessToken={accessToken} />
           {renderContent()}
         </div>
       </div>

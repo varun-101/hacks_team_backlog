@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Calendar, BarChart3, Share2, UserPlus, 
   Settings, LogOut, Bell, Search, Plus, Briefcase,
-  MessageSquarePlus, CheckCircle2, Clock
+  MessageSquarePlus, CheckCircle2, Clock, Youtube, Upload
 } from 'lucide-react';
 import { AreaChart, Card, Title, Text, BarChart } from '@tremor/react';
 import ContentCalendar from './ContentCalendar';
 import ClientManagement from './ClientManagement';
+import { VideoStats } from './YouTube/VideoStats';
+import { VideoUpload } from './YouTube/VideoUpload';
 
 const chartdata = [
   { date: "Jan", "Total Posts": 12, "Engagement Rate": 2.3 },
@@ -24,13 +26,18 @@ const clientAcquisitionData = [
 ];
 
 const ManagerDashboard = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const accessToken = localStorage.getItem('youtube_access_token');
+  const [activeTab, setActiveTab] = useState('upload');
   const [showAddClient, setShowAddClient] = useState(false);
 
   const sidebarItems = [
     { id: 'dashboard', icon: BarChart3, label: 'Dashboard' },
     { id: 'calendar', icon: Calendar, label: 'Content Calendar' },
     { id: 'clients', icon: Users, label: 'Clients' },
+    { id: 'youtube', label: 'YouTube', icon: Youtube, children: [
+      { id: 'upload', icon: Upload, label: 'Upload Video' },
+      { id: 'videos', icon: MessageSquarePlus, label: 'Manage Videos' }
+    ]},
     { id: 'social', icon: Share2, label: 'Social Accounts' },
     { id: 'acquisition', icon: UserPlus, label: 'Client Acquisition' },
     { id: 'settings', icon: Settings, label: 'Settings' },
@@ -42,6 +49,10 @@ const ManagerDashboard = () => {
         return <ContentCalendar />;
       case 'clients':
         return <ClientManagement />;
+      case 'upload':
+        return <VideoUpload accessToken={accessToken} />;
+      case 'videos':
+        return <VideoStats accessToken={accessToken} />;
       default:
         return (
           <div className="p-6 space-y-6">
@@ -205,20 +216,48 @@ const ManagerDashboard = () => {
 
         <nav className="space-y-2">
           {sidebarItems.map((item) => (
-            <motion.button
-              key={item.id}
-              whileHover={{ x: 4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                activeTab === item.id 
-                  ? 'bg-purple-600 text-white' 
-                  : 'text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <item.icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </motion.button>
+            <div key={item.id}>
+              {item.children ? (
+                <div className="mb-2">
+                  <div className="flex items-center gap-3 px-4 py-2 text-slate-400">
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    {item.children.map((child) => (
+                      <motion.button
+                        key={child.id}
+                        whileHover={{ x: 4 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setActiveTab(child.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
+                          activeTab === child.id 
+                            ? 'bg-purple-600 text-white' 
+                            : 'text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        <child.icon className="w-4 h-4" />
+                        <span>{child.label}</span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <motion.button
+                  whileHover={{ x: 4 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    activeTab === item.id 
+                      ? 'bg-purple-600 text-white' 
+                      : 'text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span>{item.label}</span>
+                </motion.button>
+              )}
+            </div>
           ))}
         </nav>
 
