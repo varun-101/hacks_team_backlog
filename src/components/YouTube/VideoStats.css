@@ -1,0 +1,22 @@
+.video-stats {
+  margin: 20px 0;
+  padding: 20px;
+  border: 2px dashed #61dafb;
+  border-radius: 8px;
+}
+
+.video-stats h2 {
+  color: #61dafb;
+}
+
+.video-stats ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.video-stats li {
+  margin-bottom: 15px;
+  padding: 10px;
+  background: rgba(97, 218, 251, 0.1);
+  border-radius: 4px;
+} 

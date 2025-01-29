@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './VideoUpload.css';
+import WarningModal from './WarningModal'; // Import the WarningModal component
 
 export const VideoUpload = ({ accessToken }) => {
   const [uploading, setUploading] = useState(false);
@@ -14,6 +15,9 @@ export const VideoUpload = ({ accessToken }) => {
   const [showForm, setShowForm] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isScheduled, setIsScheduled] = useState(false);
+  const [showWarning, setShowWarning] = useState(false); // State to control the warning modal
+  const [warningMessage, setWarningMessage] = useState(''); // State for warning message
+  const [flaggedContent, setFlaggedContent] = useState([]); // State for flagged content
 
   useEffect(() => {
     const loadGapiClient = async () => {
@@ -74,116 +78,136 @@ export const VideoUpload = ({ accessToken }) => {
     setProgress(0);
 
     try {
-      // Validate schedule time if scheduling is enabled
-      let publishAt = null;
-      if (isScheduled && videoDetails.scheduleDate && videoDetails.scheduleTime) {
-        const scheduledDate = new Date(`${videoDetails.scheduleDate}T${videoDetails.scheduleTime}`);
-        const now = new Date();
-        const minScheduleTime = new Date(now.getTime() + 15 * 60 * 1000);
-        
-        if (scheduledDate <= minScheduleTime) {
-          throw new Error('Scheduled time must be at least 15 minutes in the future');
-        }
-        publishAt = scheduledDate.toISOString();
-      }
+        // First, send the video for analysis
+        const analysisFormData = new FormData();
+        analysisFormData.append('video', selectedFile); // Ensure the video file is sent for analysis
 
-      // First, upload the video with scheduling info if applicable
-      const formData = new FormData();
-      formData.append('metadata', new Blob([JSON.stringify({
-        snippet: {
-          title: videoDetails.title,
-          description: videoDetails.description,
-          categoryId: '22',
-        },
-        status: {
-          privacyStatus: 'private',
-          selfDeclaredMadeForKids: false,
-          ...(publishAt && { publishAt }), // Include publishAt in initial upload if scheduling
-        },
-      })], { type: 'application/json' }));
-      formData.append('file', selectedFile);
+        const analysisResponse = await fetch('http://localhost:5000/analyze_video', {
+            method: 'POST',
+            body: analysisFormData, // Send the video file in the body
+        });
 
-      // Upload with progress tracking
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status');
-      xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+        const analysisResult = await analysisResponse.json();
+        console.log('Analysis Result:', analysisResult);
 
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100);
-          setProgress(progress);
-        }
-      };
+        // Handle the analysis result
+        if (analysisResult.flagged_content && analysisResult.flagged_content.length > 0) {
+            setWarningMessage('Warning: Toxic content detected in the video! Upload canceled.');
 
-      const uploadResponse = await new Promise((resolve, reject) => {
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(JSON.parse(xhr.responseText));
-          } else {
-            reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
-          }
-        };
-        xhr.onerror = () => reject(new Error('Network error occurred'));
-        xhr.send(formData);
-      });
+            // Filter to get unique texts and their categories
+            const uniqueFlaggedContent = [];
+            const seenTexts = new Set();
 
-      // If not private and not scheduled, update the privacy setting
-      if (!isScheduled && videoDetails.privacyStatus !== 'private') {
-        try {
-          const updateResponse = await fetch(
-            `https://www.googleapis.com/youtube/v3/videos?part=status`,
-            {
-              method: 'PUT',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                id: uploadResponse.id,
-                status: {
-                  privacyStatus: videoDetails.privacyStatus,
-                  selfDeclaredMadeForKids: false,
-                },
-              }),
+            for (const item of analysisResult.flagged_content) {
+                if (!seenTexts.has(item.text) && uniqueFlaggedContent.length < 3) {
+                    seenTexts.add(item.text);
+                    uniqueFlaggedContent.push({
+                        text: item.text,
+                        toxic_categories: item.toxic_categories,
+                    });
+                }
             }
-          );
 
-          if (!updateResponse.ok) {
-            console.error('Privacy update failed, but video was uploaded');
-          }
-        } catch (error) {
-          console.error('Privacy update failed, but video was uploaded:', error);
+            setFlaggedContent(uniqueFlaggedContent); // Set flagged content
+            setShowWarning(true); // Show the warning modal
+            return; // Stop the upload process if toxic content is detected
+        } else {
+            alert('Video analyzed successfully! Proceeding to upload...');
         }
-      }
 
-      console.log('Video processed successfully');
-      alert(isScheduled ? 
-        `Video scheduled successfully for ${new Date(publishAt).toLocaleString()}` : 
-        'Video uploaded successfully!'
-      );
+        // Define publishAt based on scheduling
+        let publishAt = null;
+        if (isScheduled) {
+            publishAt = new Date(`${videoDetails.scheduleDate}T${videoDetails.scheduleTime}`).toISOString();
+        }
+
+        // Proceed with the video upload if analysis is successful
+        const formData = new FormData();
+        formData.append('metadata', new Blob([JSON.stringify({
+            snippet: {
+                title: videoDetails.title,
+                description: videoDetails.description,
+                categoryId: '22',
+            },
+            status: {
+                privacyStatus: videoDetails.privacyStatus,
+                selfDeclaredMadeForKids: false,
+                ...(publishAt && { publishAt }), // Include publishAt in initial upload if scheduling
+            },
+        })], { type: 'application/json' }));
+        formData.append('file', selectedFile); // Append the video file for upload
+
+        // Upload with progress tracking
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status');
+        xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const progress = Math.round((event.loaded / event.total) * 100);
+                setProgress(progress);
+            }
+        };
+
+        const uploadResponse = await new Promise((resolve, reject) => {
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(JSON.parse(xhr.responseText));
+                } else {
+                    reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
+                }
+            };
+            xhr.onerror = () => reject(new Error('Network error occurred'));
+            xhr.send(formData);
+        });
+
+        // If not private and not scheduled, update the privacy setting
+        if (!isScheduled && videoDetails.privacyStatus !== 'private') {
+            try {
+                const updateResponse = await fetch(
+                    `https://www.googleapis.com/youtube/v3/videos?part=status`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            id: uploadResponse.id,
+                            status: {
+                                privacyStatus: videoDetails.privacyStatus,
+                                selfDeclaredMadeForKids: false,
+                            },
+                        }),
+                    }
+                );
+
+                if (!updateResponse.ok) {
+                    console.error('Privacy update failed, but video was uploaded');
+                }
+            } catch (error) {
+                console.error('Privacy update failed, but video was uploaded:', error);
+            }
+        }
+
+        console.log('Video processed successfully');
     } catch (error) {
-      console.error('Upload error:', error);
-      // Check if the error is just the scheduling update error but video was uploaded
-      if (error.message.includes('invalid scheduled publishing time') && 
-          error.message.includes('update video settings')) {
-        alert('Video uploaded successfully!');
-      } else {
+        console.error('Upload error:', error);
         alert(`Failed to upload video: ${error.message}`);
-      }
     } finally {
-      setUploading(false);
-      setShowForm(false);
-      setSelectedFile(null);
-      setIsScheduled(false);
-      setVideoDetails({
-        title: '',
-        description: '',
-        privacyStatus: 'private',
-        scheduleDate: '',
-        scheduleTime: '',
-      });
+        setUploading(false);
+        setShowForm(false);
+        setSelectedFile(null);
+        setIsScheduled(false);
+        setVideoDetails({
+            title: '',
+            description: '',
+            privacyStatus: 'private',
+            scheduleDate: '',
+            scheduleTime: '',
+        });
     }
-  };
+};
 
   const getMinDate = () => {
     const today = new Date();
@@ -298,6 +322,15 @@ export const VideoUpload = ({ accessToken }) => {
             {progress < 100 ? 'Uploading...' : 'Processing video...'}
           </p>
         </div>
+      )}
+
+      {/* Render the warning modal if needed */}
+      {showWarning && (
+        <WarningModal 
+          message={warningMessage} 
+          flaggedContent={flaggedContent} // Pass flagged content to the modal
+          onClose={() => setShowWarning(false)} 
+        />
       )}
     </div>
   );
