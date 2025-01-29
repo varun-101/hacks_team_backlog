@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Mail, Building2, Phone, X, Instagram, Facebook, Twitter, Linkedin } from 'lucide-react';
+import { Plus, Users, Mail, Building2, Phone, X, Instagram, Facebook, Twitter, Youtube } from 'lucide-react';
 import { Card, Title } from '@tremor/react';
 
 interface Client {
@@ -9,6 +9,10 @@ interface Client {
   email: string;
   company: string;
   phone: string;
+  credentials: {
+    username: string;
+    password: string;
+  };
   socialAccounts: {
     platform: string;
     username: string;
@@ -22,13 +26,29 @@ const ClientManagement = () => {
     socialAccounts: []
   });
 
+  const generateCredentials = (clientName: string) => {
+    const username = (clientName.toLowerCase().replace(/\s+/g, '') + 
+      Math.floor(Math.random() * 1000)).slice(0, 15);
+    
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    const passwordLength = 12;
+    let password = '';
+    for (let i = 0; i < passwordLength; i++) {
+      password += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    
+    return { username, password };
+  };
+
   const handleAddClient = () => {
+    const credentials = generateCredentials(newClient.name || '');
     const client: Client = {
       id: crypto.randomUUID(),
       name: newClient.name || '',
       email: newClient.email || '',
       company: newClient.company || '',
       phone: newClient.phone || '',
+      credentials,
       socialAccounts: newClient.socialAccounts || []
     };
     setClients([...clients, client]);
@@ -40,7 +60,7 @@ const ClientManagement = () => {
     { id: 'instagram', icon: Instagram, label: 'Instagram' },
     { id: 'facebook', icon: Facebook, label: 'Facebook' },
     { id: 'twitter', icon: Twitter, label: 'Twitter' },
-    { id: 'linkedin', icon: Linkedin, label: 'LinkedIn' }
+    { id: 'youtube', icon: Youtube, label: 'YouTube' }
   ];
 
   return (
@@ -94,6 +114,11 @@ const ClientManagement = () => {
                 <div className="flex items-center gap-2 text-slate-300">
                   <Phone className="w-4 h-4" />
                   <span>{client.phone}</span>
+                </div>
+                <div className="mt-4 p-3 bg-slate-700/50 rounded-lg">
+                  <p className="text-sm font-medium text-slate-300">Client Credentials</p>
+                  <p className="text-sm text-slate-400">Username: {client.credentials.username}</p>
+                  <p className="text-sm text-slate-400">Password: {client.credentials.password}</p>
                 </div>
               </div>
             </Card>

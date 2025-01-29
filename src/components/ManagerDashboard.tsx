@@ -8,6 +8,7 @@ import {
 import { AreaChart, Card, Title, Text, BarChart } from '@tremor/react';
 import ContentCalendar from './ContentCalendar';
 import ClientManagement from './ClientManagement';
+import CommentScanner from './CommentScanner';
 import { VideoStats } from './YouTube/VideoStats';
 import { VideoUpload } from './YouTube/VideoUpload';
 
@@ -31,28 +32,28 @@ const ManagerDashboard = () => {
   const [showAddClient, setShowAddClient] = useState(false);
 
   const sidebarItems = [
-    { id: 'dashboard', icon: BarChart3, label: 'Dashboard' },
-    { id: 'calendar', icon: Calendar, label: 'Content Calendar' },
-    { id: 'clients', icon: Users, label: 'Clients' },
-    { id: 'youtube', label: 'YouTube', icon: Youtube, children: [
-      { id: 'upload', icon: Upload, label: 'Upload Video' },
-      { id: 'videos', icon: MessageSquarePlus, label: 'Manage Videos' }
+    { id: "dashboard", icon: BarChart3, label: "Dashboard" },
+    { id: "calendar", icon: Calendar, label: "Content Calendar" },
+    { id: "clients", icon: Users, label: "Clients" },
+    { id: "youtube", label: "YouTube", icon: Youtube, children: [
+      { id: "upload", icon: Upload, label: "Upload Video" },
+      { id: "videos", icon: MessageSquarePlus, label: "Manage Videos" },
+      { id: "comment-scanner", icon: CheckCircle2, label: "Comment Scanner" } // 👈 New item
     ]},
-    { id: 'social', icon: Share2, label: 'Social Accounts' },
-    { id: 'acquisition', icon: UserPlus, label: 'Client Acquisition' },
-    { id: 'settings', icon: Settings, label: 'Settings' },
   ];
-
+  
   const renderContent = () => {
     switch (activeTab) {
-      case 'calendar':
+      case "calendar":
         return <ContentCalendar />;
-      case 'clients':
+      case "clients":
         return <ClientManagement />;
-      case 'upload':
+      case "upload":
         return <VideoUpload accessToken={accessToken} />;
-      case 'videos':
+      case "videos":
         return <VideoStats accessToken={accessToken} />;
+      case "comment-scanner":  // 👈 Add this case
+        return <CommentScanner />;
       default:
         return (
           <div className="p-6 space-y-6">
