@@ -110,7 +110,7 @@ export const VideoUpload = ({ accessToken }) => {
 
             setFlaggedContent(uniqueFlaggedContent); // Set flagged content
             setShowWarning(true); // Show the warning modal
-            return; // Stop the upload process if toxic content is detected
+            return; // Stop the upload process if toxic content is detecte
         } else {
             alert('Video analyzed successfully! Proceeding to upload...');
         }
