@@ -1,24 +1,40 @@
-import logo from './logo.svg';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import { usePersistentAuth } from './components/Auth/PersistentAuth';
+import { ChannelInfo } from './components/YouTube/ChannelInfo';
+import { VideoUpload } from './components/YouTube/VideoUpload';
 import './App.css';
 
-function App() {
+function Dashboard() {
+  const { accessToken, login, logout } = usePersistentAuth();
+
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload. niger
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+        <h1>YouTube Channel Dashboard</h1>
+        
+        {!accessToken ? (
+          <button onClick={() => login()}>
+            Sign in with Google
+          </button>
+        ) : (
+          <>
+            <button onClick={logout}>Logout</button>
+            <ChannelInfo accessToken={accessToken} />
+            <VideoUpload accessToken={accessToken} />
+          </>
+        )}
       </header>
     </div>
+  );
+}
+
+function App() {
+  const CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
+  return (
+    <GoogleOAuthProvider clientId={CLIENT_ID}>
+      <Dashboard />
+    </GoogleOAuthProvider>
   );
 }
 
